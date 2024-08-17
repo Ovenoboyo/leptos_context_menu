@@ -29,24 +29,21 @@ impl ContextMenuData<Self> for DataContextMenu {
         vec![
             ContextMenuItemInner::new_with_handler(
                 "Item 1".to_string(),
-                "item1".to_string(),
                 |cx| {
-                    log!("data {}", cx.hello());
+                    cx.hello();
                 },
                 Some(vec![ContextMenuItemInner::new_with_handler(
                     "Item 1.1".to_string(),
-                    "item1.1".to_string(),
                     |cx| {
-                        log!("data {}", cx.hello1());
+                        cx.hello1();
                     },
                     None,
                 )]),
             ),
             ContextMenuItemInner::new_with_handler(
                 "Item 2".to_string(),
-                "item2".to_string(),
                 |cx| {
-                    log!("data {}", cx.bye());
+                    cx.bye();
                 },
                 None,
             ),

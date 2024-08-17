@@ -4,6 +4,7 @@ use leptos::{html::div, For, IntoView, SignalGet, SignalUpdate};
 use leptos_use::on_click_outside;
 use std::rc::Rc;
 use std::sync::{Mutex, MutexGuard};
+use uuid::Uuid;
 use wasm_bindgen::JsCast;
 
 pub use context_menu_macro::{context_menu, context_menu_attr};
@@ -241,10 +242,10 @@ where
             div.set_id("context-menu");
 
             let node_ref = create_node_ref::<Div>();
-            let _ = div.node_ref(node_ref);
+            let div = div.node_ref(node_ref);
 
-            on_click_outside(node_ref, move || {
-                node_ref.get_untracked().unwrap().inner_html("");
+            let _ = on_click_outside(node_ref, move |_| {
+                let _ = node_ref.get_untracked().unwrap().inner_html("");
             });
 
             leptos::mount_to_body(move || div);
@@ -273,21 +274,20 @@ impl<T> Clone for ContextMenuItemInner<T> {
 impl<T> ContextMenuItemInner<T> {
     pub fn new_with_handler(
         name: String,
-        key: String,
         handler: impl Fn(MutexGuard<'_, T>) + 'static,
         children: Option<ContextMenuItems<T>>,
     ) -> Self {
         ContextMenuItemInner {
-            key,
+            key: Uuid::new_v4().to_string(),
             name,
             handler: Some(Rc::new(Box::new(handler))),
             children,
         }
     }
 
-    pub fn new(name: String, key: String, children: Option<ContextMenuItems<T>>) -> Self {
+    pub fn new(name: String, children: Option<ContextMenuItems<T>>) -> Self {
         ContextMenuItemInner {
-            key,
+            key: Uuid::new_v4().to_string(),
             name,
             handler: None,
             children,
