@@ -1,0 +1,9 @@
+[package]
+name = "leptos_virtual_scroller_demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+console_error_panic_hook = "0.1.7"
+leptos = { version = "0.6.9", features = ["csr"] }
+leptos_context_menu = { path = "../" }

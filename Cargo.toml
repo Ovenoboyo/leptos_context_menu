@@ -1,0 +1,14 @@
+[package]
+name = "leptos_context_menu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+context_menu_macro = { path = "context_menu_macro" }
+leptos = { version = "0.6.9", features = ["csr"] }
+leptos-use = "0.12.0"
+wasm-bindgen = "0.2.93"
+web-sys = "0.3.70"
+
+[dev-dependencies]
+console_error_panic_hook = "0.1.7"
