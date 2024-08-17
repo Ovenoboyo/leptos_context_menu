@@ -31,7 +31,7 @@ pub fn context_menu(_attr: TokenStream, input: TokenStream) -> TokenStream {
             for attr in &method.attrs {
                 if attr.path().is_ident("context_menu_attr") {
                     if let Meta::List(meta_list) = &attr.meta {
-                        let tokens = meta_list.tokens;
+                        let tokens = meta_list.tokens.clone();
                         for token in tokens {
                             if let TokenTree::Ident(ident) = token {
                                 // Will implement some day

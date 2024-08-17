@@ -1,6 +1,7 @@
 use leptos::html::Div;
 use leptos::{create_node_ref, create_rw_signal, view, NodeRef, RwSignal, SignalGetUntracked};
 use leptos::{html::div, For, IntoView, SignalGet, SignalUpdate};
+use leptos_use::on_click_outside;
 use std::rc::Rc;
 use std::sync::{Mutex, MutexGuard};
 use wasm_bindgen::JsCast;
@@ -238,6 +239,14 @@ where
         if element.is_none() {
             let div = div();
             div.set_id("context-menu");
+
+            let node_ref = create_node_ref::<Div>();
+            let _ = div.node_ref(node_ref);
+
+            on_click_outside(node_ref, move || {
+                node_ref.get_untracked().unwrap().inner_html("");
+            });
+
             leptos::mount_to_body(move || div);
             element = leptos::document().get_element_by_id("context-menu");
         }
