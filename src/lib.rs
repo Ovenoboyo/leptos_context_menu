@@ -135,11 +135,11 @@ where
                         view! {
                             <div
                                 class="context-menu-item"
-                                class:open=move || {
+                                class=("context-menu-open", move || {
                                     let hovered_items = args.hovered_items.get();
                                     leptos::logging::log!("{:?} {:?} {}", hovered_items.iter().map(|f| f.0.clone()).collect::<Vec<String>>(), item_key, hovered_items.iter().any(|i| i.0 == item_key.clone()));
                                     hovered_items.iter().any(|i| i.0 == item_key.clone())
-                                }
+                                })
                                 style="display: flex; align-items: center;"
                                 node_ref=active_item_node_ref
                                 on:mouseover=move |_| {
