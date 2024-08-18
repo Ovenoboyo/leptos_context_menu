@@ -5,6 +5,7 @@ use leptos::{
 };
 use leptos::{html::div, For, IntoView, SignalGet, SignalUpdate};
 use leptos_use::on_click_outside;
+use std::fmt;
 use std::rc::Rc;
 use std::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
@@ -30,6 +31,7 @@ where
 
 pub type ContextMenuItems<T> = Vec<ContextMenuItemInner<T>>;
 pub type ContextMenuHandler<T> = Option<Rc<Box<dyn Fn(MutexGuard<'_, T>)>>>;
+
 pub struct ContextMenuItemInner<T> {
     pub key: String,
     pub name: String,
@@ -134,7 +136,8 @@ where
                             <div
                                 class="context-menu-item"
                                 class:open=move || {
-                                    let hovered_items = args.hovered_items.get_untracked();
+                                    let hovered_items = args.hovered_items.get();
+                                    leptos::logging::log!("{:?} {:?} {}", hovered_items.iter().map(|f| f.0.clone()).collect::<Vec<String>>(), item_key, hovered_items.iter().any(|i| i.0 == item_key.clone()));
                                     hovered_items.iter().any(|i| i.0 == item_key.clone())
                                 }
                                 style="display: flex; align-items: center;"
