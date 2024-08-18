@@ -127,21 +127,25 @@ where
                         let item_name = item.name.clone();
                         let item_children = item.children.clone();
                         let item_handler = item.handler.clone();
+                        let item_key = item.key.clone();
                         let active_item_node_ref = create_node_ref::<Div>();
                         let ctx = args.ctx.clone();
                         view! {
                             <div
                                 class="context-menu-item"
+                                class:open=move || {
+                                    let hovered_items = args.hovered_items.get_untracked();
+                                    hovered_items.iter().any(|i| i.0 == item_key.clone())
+                                }
                                 style="display: flex; align-items: center;"
                                 node_ref=active_item_node_ref
                                 on:mouseover=move |_| {
-                                    let (width, page_y) = context_menu_bounds(args.level, active_item_node_ref);
-                                    handle_hover(
-                                    &item,
-                                    args.x + width,
-                                    page_y,
-                                    args.level,
-                                )}
+                                    let (width, page_y) = context_menu_bounds(
+                                        args.level,
+                                        active_item_node_ref,
+                                    );
+                                    handle_hover(&item, args.x + width, page_y, args.level)
+                                }
                                 on:click=move |_| {
                                     if let Some(handler) = item_handler.clone() {
                                         let ctx = ctx.lock().unwrap();
@@ -155,13 +159,15 @@ where
                                 >
                                     {item_name.clone()}
                                 </div>
-                                {move || {
-                                    if item_children.is_some() {
-                                        view! {
-                                            <div
-                                                class="context-menu-item-icon"
-                                                style="min-width: 14px; min-height: 14px; width: 14px; height: 14px; display: flex;"
-                                            >
+
+                                <div
+                                    class="context-menu-item-icon"
+                                    style="min-width: 14px; min-height: 14px; width: 14px; height: 14px; display: flex;"
+                                >
+
+                                    {move || {
+                                        if item_children.is_some() {
+                                            view! {
                                                 <svg
                                                     class="context-menu-right-arrow"
                                                     aria-hidden="true"
@@ -169,13 +175,15 @@ where
                                                 >
                                                     <path d="M307.018 49.445c11.517 0 23.032 4.394 31.819 13.18L756.404 480.18c8.439 8.438 13.181 19.885 13.181 31.82s-4.741 23.38-13.181 31.82L338.838 961.376c-17.574 17.573-46.065 17.573-63.64-0.001-17.573-17.573-17.573-46.065 0.001-63.64L660.944 512 275.198 126.265c-17.574-17.573-17.574-46.066-0.001-63.64C283.985 53.839 295.501 49.445 307.018 49.445z"></path>
                                                 </svg>
-                                            </div>
+                                            }
+                                                .into_view()
+                                        } else {
+                                            view! {}.into_view()
                                         }
-                                            .into_view()
-                                    } else {
-                                        view! {}.into_view()
-                                    }
-                                }}
+                                    }}
+
+                                </div>
+
                             </div>
                         }
                     }
@@ -201,19 +209,16 @@ where
         let view = move || {
             view! {
                 <>
-                    {Self::render_menu(
-                        RenderMenuArgs {
-                            ctx: ctx.clone(),
-                            root_node_ref,
-                            hovered_items,
-                            items: root_items.clone(),
-                            x,
-                            y,
-                            level: 0,
-                            node_ref: root_node_ref,
-                        }
-                    )}
-                    // Render all nested menus based on hovered items
+                    {Self::render_menu(RenderMenuArgs {
+                        ctx: ctx.clone(),
+                        root_node_ref,
+                        hovered_items,
+                        items: root_items.clone(),
+                        x,
+                        y,
+                        level: 0,
+                        node_ref: root_node_ref,
+                    })} // Render all nested menus based on hovered items
                     {move || {
                         let ctx = ctx.clone();
                         hovered_items
@@ -221,18 +226,16 @@ where
                             .iter()
                             .enumerate()
                             .map(|(level, (_, children, child_x, child_y, node_ref))| {
-                                Self::render_menu(
-                                    RenderMenuArgs {
-                                        ctx: ctx.clone(),
-                                        root_node_ref,
-                                        hovered_items,
-                                        items: children.clone(),
-                                        x: *child_x,
-                                        y: *child_y,
-                                        level: level + 1,
-                                        node_ref: *node_ref,
-                                    }
-                                )
+                                Self::render_menu(RenderMenuArgs {
+                                    ctx: ctx.clone(),
+                                    root_node_ref,
+                                    hovered_items,
+                                    items: children.clone(),
+                                    x: *child_x,
+                                    y: *child_y,
+                                    level: level + 1,
+                                    node_ref: *node_ref,
+                                })
                             })
                             .collect::<Vec<_>>()
                     }}
