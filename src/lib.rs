@@ -1,5 +1,8 @@
 use leptos::html::Div;
-use leptos::{create_node_ref, create_rw_signal, view, NodeRef, RwSignal, SignalGetUntracked};
+use leptos::{
+    create_node_ref, create_rw_signal, view, NodeRef, RwSignal, SignalGetUntracked,
+    SignalUpdateUntracked,
+};
 use leptos::{html::div, For, IntoView, SignalGet, SignalUpdate};
 use leptos_use::on_click_outside;
 use std::rc::Rc;
@@ -252,6 +255,7 @@ where
             element = leptos::document().get_element_by_id("context-menu");
         }
         let element = element.unwrap();
+        self.hovered_items.update_untracked(|h| h.clear());
         if element.has_child_nodes() {
             element.set_inner_html("");
         }
