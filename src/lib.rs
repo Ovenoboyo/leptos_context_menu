@@ -59,15 +59,16 @@ impl ContextMenuState {
     }
 }
 
+#[derive(Clone)]
 pub struct ContextMenu<T>
 where
     T: ContextMenuData<T> + 'static,
 {
     hovered_items: RwSignal<HoverItems<T>>,
     ctx: Rc<Mutex<T>>,
-    root_view: Mutex<Option<NodeRef<Div>>>,
+    root_view: Rc<Mutex<Option<NodeRef<Div>>>>,
     coords: RwSignal<(i32, i32)>,
-    show: RwSignal<bool>,
+    show_signal: RwSignal<bool>,
 }
 
 impl<T> ContextMenu<T>
@@ -78,18 +79,22 @@ where
         let ctx = Self {
             ctx: Rc::new(Mutex::new(data)),
             hovered_items: create_rw_signal(Vec::new()),
-            root_view: Mutex::new(None),
+            root_view: Rc::new(Mutex::new(None)),
             coords: create_rw_signal((0, 0)),
-            show: create_rw_signal(false),
+            show_signal: create_rw_signal(false),
         };
 
         ctx.render_root_view();
 
         if let Some(context_menu_state) = leptos::use_context::<RwSignal<ContextMenuState>>() {
-            context_menu_state.update(|c| c.add_menu(ctx.show));
+            context_menu_state.update(|c| c.add_menu(ctx.show_signal));
         }
 
         ctx
+    }
+
+    pub fn get_data(&self) -> MutexGuard<'_, T> {
+        self.ctx.lock().unwrap()
     }
 
     fn render_menu(args: RenderMenuArgs<T>) -> impl IntoView {
@@ -269,7 +274,7 @@ where
         let root_node_ref = create_node_ref();
         let hovered_items = self.hovered_items;
         let coords = self.coords;
-        let show = self.show;
+        let show = self.show_signal;
 
         let view = view! {
             <div class="context-menu-root" node_ref=root_node_ref style:display=move || if show.get() { "block" } else {"none"}>
@@ -340,7 +345,7 @@ where
         if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {
             context_menu_state.update(|c| c.hide_all());
         }
-        self.show.set(true);
+        self.show_signal.set(true);
     }
 }
 

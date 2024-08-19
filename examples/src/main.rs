@@ -1,18 +1,23 @@
-use leptos::{logging::log, mount_to_body, view};
+use std::time::Duration;
+
+use leptos::{
+    create_rw_signal, logging::log, mount_to_body, set_interval, spawn_local, view, SignalGet,
+};
 use leptos_context_menu::{
     provide_context_menu_state, ContextMenu, ContextMenuData, ContextMenuItemInner,
     ContextMenuItems,
 };
 
+#[derive(Clone, Copy)]
 struct DataContextMenu {
-    string_data: String,
+    string_data: u32,
 }
 
 // #[context_menu]
 impl DataContextMenu {
     // #[context_menu_attr(name = "hello")]
     fn hello(&self) {
-        log!("Hello, World!");
+        log!("{}", self.string_data);
     }
 
     // #[context_menu_attr(name="hello1", children=[bye, bye1])]
@@ -64,15 +69,27 @@ fn main() {
     // Optional if you only want one context menu on the screen at a time
     provide_context_menu_state();
 
+    let context_menu_data = DataContextMenu { string_data: 0 };
+
+    let context_menu = create_rw_signal(ContextMenu::new(context_menu_data));
+
+    set_interval(
+        move || {
+            let binding = context_menu.get();
+            let mut context_menu_data = binding.get_data();
+            context_menu_data.string_data += 1;
+            if context_menu_data.string_data > 10000 {
+                context_menu_data.string_data = 0;
+            }
+            log!("{}", context_menu_data.string_data);
+        },
+        Duration::from_millis(1000),
+    );
+
     mount_to_body(move || {
         leptos::window_event_listener(leptos::ev::contextmenu, move |ev| {
             ev.prevent_default();
-
-            let context_menu = DataContextMenu {
-                string_data: "Hello, World!".into(),
-            };
-            let context_menu: ContextMenu<DataContextMenu> = ContextMenu::new(context_menu);
-            context_menu.show(ev);
+            context_menu.get().show(ev);
         });
         view! { <div style="height: 100vh;"></div> }
     });
