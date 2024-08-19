@@ -70,6 +70,7 @@ where
     root_view: Rc<Mutex<Option<NodeRef<Div>>>>,
     coords: RwSignal<(i32, i32)>,
     show_signal: RwSignal<bool>,
+    root_items: RwSignal<ContextMenuItems<T>>,
 }
 
 impl<T> ContextMenu<T>
@@ -83,6 +84,7 @@ where
             root_view: Rc::new(Mutex::new(None)),
             coords: create_rw_signal((0, 0)),
             show_signal: create_rw_signal(false),
+            root_items: create_rw_signal(Vec::new()),
         };
 
         ctx.render_root_view();
@@ -201,7 +203,7 @@ where
                         let item_key = item.key.clone();
                         let active_item_node_ref = create_node_ref::<Div>();
                         let ctx = args.ctx.clone();
-                        let show = args.show.clone();
+                        let show = args.show;
                         view! {
                             <div
                                 class="context-menu-item"
@@ -269,10 +271,7 @@ where
     }
 
     pub fn render_root_view(&self) {
-        let ctx = self.ctx.lock().unwrap();
-        let root_items = ctx.get_menu_items().clone();
-        drop(ctx);
-
+        let root_items = self.root_items.get();
         let ctx = self.ctx.clone();
         let root_node_ref = create_node_ref();
         let hovered_items = self.hovered_items;
@@ -343,6 +342,10 @@ where
     pub fn show(&self, mouse_event: leptos::ev::MouseEvent) {
         let x = mouse_event.client_x();
         let y = mouse_event.client_y();
+
+        let ctx = self.ctx.lock().unwrap();
+        self.root_items.set(ctx.get_menu_items());
+        drop(ctx);
 
         self.hovered_items.set(vec![]);
         self.coords.set((x, y));
