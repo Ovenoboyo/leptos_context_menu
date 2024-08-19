@@ -272,7 +272,7 @@ where
         let show = self.show;
 
         let view = view! {
-            <div class="context-menu-root" node_ref=root_node_ref>
+            <div class="context-menu-root" node_ref=root_node_ref style:display=move || if show.get() { "block" } else {"none"}>
                 {move || {
                     if show.get() {
                         let mut ret = vec![];
