@@ -26,6 +26,7 @@ where
     y: i32,
     level: usize,
     node_ref: NodeRef<Div>,
+    show: RwSignal<bool>,
 }
 
 pub type ContextMenuItems<T> = Vec<ContextMenuItemInner<T>>;
@@ -200,6 +201,7 @@ where
                         let item_key = item.key.clone();
                         let active_item_node_ref = create_node_ref::<Div>();
                         let ctx = args.ctx.clone();
+                        let show = args.show.clone();
                         view! {
                             <div
                                 class="context-menu-item"
@@ -223,6 +225,7 @@ where
                                     if let Some(handler) = item_handler.clone() {
                                         let ctx = ctx.lock().unwrap();
                                         handler(ctx);
+                                        show.set(false);
                                     }
                                 }
                             >
@@ -293,6 +296,7 @@ where
                                     y,
                                     level: 0,
                                     node_ref: root_node_ref,
+                                    show
                                 })
                                 .into_view(),
                         );
@@ -312,6 +316,7 @@ where
                                         y: *child_y,
                                         level: level + 1,
                                         node_ref: *node_ref,
+                                        show
                                     })
                                 })
                                 .collect_view(),
