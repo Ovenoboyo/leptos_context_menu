@@ -1,6 +1,7 @@
 use leptos::{logging::log, mount_to_body, view};
 use leptos_context_menu::{
-    ContextMenu, ContextMenuData, ContextMenuItemInner, ContextMenuItems,
+    provide_context_menu_state, ContextMenu, ContextMenuData, ContextMenuItemInner,
+    ContextMenuItems,
 };
 
 struct DataContextMenu {
@@ -60,13 +61,17 @@ impl ContextMenuData<Self> for DataContextMenu {
 fn main() {
     console_error_panic_hook::set_once();
 
+    // Optional if you only want one context menu on the screen at a time
+    provide_context_menu_state();
+
     mount_to_body(move || {
-        let context_menu = DataContextMenu {
-            string_data: "Hello, World!".into(),
-        };
-        let context_menu: ContextMenu<DataContextMenu> = ContextMenu::new(context_menu);
         leptos::window_event_listener(leptos::ev::contextmenu, move |ev| {
             ev.prevent_default();
+
+            let context_menu = DataContextMenu {
+                string_data: "Hello, World!".into(),
+            };
+            let context_menu: ContextMenu<DataContextMenu> = ContextMenu::new(context_menu);
             context_menu.show(ev);
         });
         view! { <div style="height: 100vh;"></div> }

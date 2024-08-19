@@ -1,7 +1,7 @@
 use leptos::html::Div;
+use leptos::logging::log;
 use leptos::{
-    create_effect, create_node_ref,
-    create_rw_signal, document, view,
+    create_effect, create_node_ref, create_rw_signal, document, provide_context, use_context, view,
     CollectView, NodeRef, RwSignal, SignalGetUntracked, SignalSet,
 };
 use leptos::{For, IntoView, SignalGet, SignalUpdate};
@@ -42,12 +42,28 @@ pub trait ContextMenuData<T> {
     fn get_menu_items(&self) -> ContextMenuItems<T>;
 }
 
+#[derive(Default)]
+struct ContextMenuState {
+    context_menu_shows: Vec<RwSignal<bool>>,
+}
+
+impl ContextMenuState {
+    pub fn hide_all(&self) {
+        for show in &self.context_menu_shows {
+            show.set(false);
+        }
+    }
+
+    pub fn add_menu(&mut self, signal: RwSignal<bool>) {
+        self.context_menu_shows.push(signal);
+    }
+}
+
 pub struct ContextMenu<T>
 where
     T: ContextMenuData<T> + 'static,
 {
     hovered_items: RwSignal<HoverItems<T>>,
-    phantom: std::marker::PhantomData<T>,
     ctx: Rc<Mutex<T>>,
     root_view: Mutex<Option<NodeRef<Div>>>,
     coords: RwSignal<(i32, i32)>,
@@ -62,13 +78,17 @@ where
         let ctx = Self {
             ctx: Rc::new(Mutex::new(data)),
             hovered_items: create_rw_signal(Vec::new()),
-            phantom: std::marker::PhantomData,
             root_view: Mutex::new(None),
             coords: create_rw_signal((0, 0)),
             show: create_rw_signal(false),
         };
 
         ctx.render_root_view();
+
+        if let Some(context_menu_state) = leptos::use_context::<RwSignal<ContextMenuState>>() {
+            context_menu_state.update(|c| c.add_menu(ctx.show));
+        }
+
         ctx
     }
 
@@ -316,6 +336,10 @@ where
 
         self.hovered_items.set(vec![]);
         self.coords.set((x, y));
+
+        if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {
+            context_menu_state.update(|c| c.hide_all());
+        }
         self.show.set(true);
     }
 }
@@ -353,4 +377,8 @@ impl<T> ContextMenuItemInner<T> {
             children,
         }
     }
+}
+
+pub fn provide_context_menu_state() {
+    provide_context(RwSignal::new(ContextMenuState::default()));
 }
