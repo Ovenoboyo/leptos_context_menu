@@ -1,15 +1,14 @@
 use leptos::html::Div;
 use leptos::{
-    create_node_ref, create_rw_signal, view, NodeRef, RwSignal, SignalGetUntracked,
-    SignalUpdateUntracked,
+    create_effect, create_node_ref,
+    create_rw_signal, document, view,
+    CollectView, NodeRef, RwSignal, SignalGetUntracked, SignalSet,
 };
-use leptos::{html::div, For, IntoView, SignalGet, SignalUpdate};
+use leptos::{For, IntoView, SignalGet, SignalUpdate};
 use leptos_use::on_click_outside;
-use std::fmt;
 use std::rc::Rc;
 use std::sync::{Mutex, MutexGuard};
 use uuid::Uuid;
-use wasm_bindgen::JsCast;
 
 pub use context_menu_macro::{context_menu, context_menu_attr};
 
@@ -47,10 +46,12 @@ pub struct ContextMenu<T>
 where
     T: ContextMenuData<T> + 'static,
 {
-    root_node_ref: NodeRef<Div>,
     hovered_items: RwSignal<HoverItems<T>>,
     phantom: std::marker::PhantomData<T>,
     ctx: Rc<Mutex<T>>,
+    root_view: Mutex<Option<NodeRef<Div>>>,
+    coords: RwSignal<(i32, i32)>,
+    show: RwSignal<bool>,
 }
 
 impl<T> ContextMenu<T>
@@ -58,12 +59,17 @@ where
     T: ContextMenuData<T> + 'static,
 {
     pub fn new(data: T) -> Self {
-        Self {
-            root_node_ref: create_node_ref::<Div>(),
+        let ctx = Self {
             ctx: Rc::new(Mutex::new(data)),
             hovered_items: create_rw_signal(Vec::new()),
             phantom: std::marker::PhantomData,
-        }
+            root_view: Mutex::new(None),
+            coords: create_rw_signal((0, 0)),
+            show: create_rw_signal(false),
+        };
+
+        ctx.render_root_view();
+        ctx
     }
 
     fn render_menu(args: RenderMenuArgs<T>) -> impl IntoView {
@@ -80,7 +86,7 @@ where
                 .get_untracked()
                 .unwrap()
                 .get_bounding_client_rect();
-            (width, bounds.top() as i32)
+            (width, bounds.top() as i32 - 1)
         };
 
         let handle_hover = move |item: &ContextMenuItemInner<T>, x, y, level| {
@@ -111,16 +117,53 @@ where
             }
         };
 
+        let y_pos = create_rw_signal(args.y);
+        let x_pos = create_rw_signal(args.x);
+
         let node_ref = args.node_ref;
+
+        create_effect(move |_| {
+            let el = node_ref.get_untracked();
+            if let Some(el) = el {
+                let body_width = document().body().unwrap().client_width();
+                let body_height = document().body().unwrap().client_height();
+
+                let height = el.offset_height();
+                let width = el.offset_width();
+
+                if height + args.y > body_height {
+                    y_pos.set(args.y - height);
+                }
+
+                if width + args.x > body_width {
+                    let mut min_x = args
+                        .root_node_ref
+                        .get_untracked()
+                        .unwrap()
+                        .get_bounding_client_rect()
+                        .left();
+                    for (_, _, _, _, node_ref) in args.hovered_items.get_untracked() {
+                        let left = node_ref
+                            .get_untracked()
+                            .unwrap()
+                            .get_bounding_client_rect()
+                            .left();
+                        if left < min_x {
+                            min_x = left;
+                        }
+                    }
+                    x_pos.set(min_x as i32 - width);
+                }
+            }
+        });
+
         view! {
             <div
                 node_ref=node_ref
                 class="context-menu-outer"
-                style=format!(
-                    "position: fixed; max-width: 600px; box-sizing: border-box; border: 1px solid;  min-width: 100px; top: {}px; left: {}px",
-                    args.y,
-                    args.x,
-                )
+                style="position: fixed; max-width: 600px; box-sizing: border-box; border: 1px solid;  min-width: 100px"
+                style:top=move || format!("{}px", y_pos.get())
+                style:left=move || format!("{}px", x_pos.get())
             >
                 <For
                     each=move || args.items.clone()
@@ -135,11 +178,13 @@ where
                         view! {
                             <div
                                 class="context-menu-item"
-                                class=("context-menu-open", move || {
-                                    let hovered_items = args.hovered_items.get();
-                                    leptos::logging::log!("{:?} {:?} {}", hovered_items.iter().map(|f| f.0.clone()).collect::<Vec<String>>(), item_key, hovered_items.iter().any(|i| i.0 == item_key.clone()));
-                                    hovered_items.iter().any(|i| i.0 == item_key.clone())
-                                })
+                                class=(
+                                    "context-menu-open",
+                                    move || {
+                                        let hovered_items = args.hovered_items.get();
+                                        hovered_items.iter().any(|i| i.0 == item_key.clone())
+                                    },
+                                )
                                 style="display: flex; align-items: center;"
                                 node_ref=active_item_node_ref
                                 on:mouseover=move |_| {
@@ -195,78 +240,83 @@ where
         }
     }
 
-    pub fn show(&self, mouse_event: leptos::ev::MouseEvent) {
-        let x = mouse_event.client_x();
-        let y = mouse_event.client_y();
-
+    pub fn render_root_view(&self) {
         let ctx = self.ctx.lock().unwrap();
         let root_items = ctx.get_menu_items().clone();
         drop(ctx);
 
-        // type HoveredItem = (String, ContextMenuItems<T>, i32, i32, NodeRef<Div>);
-
-        let hovered_items = self.hovered_items;
-        let root_node_ref = self.root_node_ref;
         let ctx = self.ctx.clone();
+        let root_node_ref = create_node_ref();
+        let hovered_items = self.hovered_items;
+        let coords = self.coords;
+        let show = self.show;
 
-        let view = move || {
-            view! {
-                <>
-                    {Self::render_menu(RenderMenuArgs {
-                        ctx: ctx.clone(),
-                        root_node_ref,
-                        hovered_items,
-                        items: root_items.clone(),
-                        x,
-                        y,
-                        level: 0,
-                        node_ref: root_node_ref,
-                    })} // Render all nested menus based on hovered items
-                    {move || {
-                        let ctx = ctx.clone();
-                        hovered_items
-                            .get()
-                            .iter()
-                            .enumerate()
-                            .map(|(level, (_, children, child_x, child_y, node_ref))| {
-                                Self::render_menu(RenderMenuArgs {
+        let view = view! {
+            <div class="context-menu-root" node_ref=root_node_ref>
+                {move || {
+                    if show.get() {
+                        let mut ret = vec![];
+                        let (x, y) = coords.get();
+                        let root_node_ref = create_node_ref();
+                        ret.push(
+                            Self::render_menu(RenderMenuArgs {
                                     ctx: ctx.clone(),
                                     root_node_ref,
                                     hovered_items,
-                                    items: children.clone(),
-                                    x: *child_x,
-                                    y: *child_y,
-                                    level: level + 1,
-                                    node_ref: *node_ref,
+                                    items: root_items.clone(),
+                                    x,
+                                    y,
+                                    level: 0,
+                                    node_ref: root_node_ref,
                                 })
-                            })
-                            .collect::<Vec<_>>()
-                    }}
-                </>
-            }
+                                .into_view(),
+                        );
+                        let ctx = ctx.clone();
+                        ret.push(
+                            hovered_items
+                                .get()
+                                .iter()
+                                .enumerate()
+                                .map(|(level, (_, children, child_x, child_y, node_ref))| {
+                                    Self::render_menu(RenderMenuArgs {
+                                        ctx: ctx.clone(),
+                                        root_node_ref,
+                                        hovered_items,
+                                        items: children.clone(),
+                                        x: *child_x,
+                                        y: *child_y,
+                                        level: level + 1,
+                                        node_ref: *node_ref,
+                                    })
+                                })
+                                .collect_view(),
+                        );
+                        ret.collect_view()
+                    } else {
+                        view! {}.into_view()
+                    }
+                }}
+            </div>
         };
-        let mut element = leptos::document().get_element_by_id("context-menu");
-        if element.is_none() {
-            let div = div();
-            div.set_id("context-menu");
 
-            let node_ref = create_node_ref::<Div>();
-            let div = div.node_ref(node_ref);
+        let _ = on_click_outside(root_node_ref, move |_| {
+            show.set(false);
+            hovered_items.set(vec![]);
+        });
 
-            let _ = on_click_outside(node_ref, move |_| {
-                let _ = node_ref.get_untracked().unwrap().inner_html("");
-            });
+        leptos::mount_to_body(move || view);
 
-            leptos::mount_to_body(move || div);
-            element = leptos::document().get_element_by_id("context-menu");
-        }
-        let element = element.unwrap();
-        self.hovered_items.update_untracked(|h| h.clear());
-        if element.has_child_nodes() {
-            element.set_inner_html("");
-        }
-        let element: web_sys::HtmlElement = element.unchecked_into();
-        leptos::mount_to(element, view);
+        let mut element = self.root_view.lock().unwrap();
+        *element = Some(root_node_ref);
+    }
+
+    pub fn show(&self, mouse_event: leptos::ev::MouseEvent) {
+        let x = mouse_event.client_x();
+        let y = mouse_event.client_y();
+
+        self.hovered_items.set(vec![]);
+        self.coords.set((x, y));
+        self.show.set(true);
     }
 }
 

@@ -673,6 +673,8 @@ dependencies = [
  "context_menu_macro",
  "leptos",
  "leptos-use",
+ "leptos_dom",
+ "leptos_reactive",
  "uuid",
  "wasm-bindgen",
  "web-sys",

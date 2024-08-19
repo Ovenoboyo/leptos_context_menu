@@ -1,6 +1,6 @@
 use leptos::{logging::log, mount_to_body, view};
 use leptos_context_menu::{
-    context_menu, ContextMenu, ContextMenuData, ContextMenuItemInner, ContextMenuItems,
+    ContextMenu, ContextMenuData, ContextMenuItemInner, ContextMenuItems,
 };
 
 struct DataContextMenu {
@@ -37,7 +37,13 @@ impl ContextMenuData<Self> for DataContextMenu {
                     |cx| {
                         cx.hello1();
                     },
-                    None,
+                    Some(vec![ContextMenuItemInner::new_with_handler(
+                        "Item 1.1.1".to_string(),
+                        |cx| {
+                            cx.bye1();
+                        },
+                        None,
+                    )]),
                 )]),
             ),
             ContextMenuItemInner::new_with_handler(
