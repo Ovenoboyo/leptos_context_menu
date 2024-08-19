@@ -277,6 +277,7 @@ where
         let hovered_items = self.hovered_items;
         let coords = self.coords;
         let show = self.show_signal;
+        let root_items = self.root_items;
 
         let view = view! {
             <div class="context-menu-root" node_ref=root_node_ref style:display=move || if show.get() { "block" } else {"none"}>
@@ -285,12 +286,13 @@ where
                         let mut ret = vec![];
                         let (x, y) = coords.get();
                         let root_node_ref = create_node_ref();
+                        let root_items = root_items.get();
                         ret.push(
                             Self::render_menu(RenderMenuArgs {
                                     ctx: ctx.clone(),
                                     root_node_ref,
                                     hovered_items,
-                                    items: root_items.clone(),
+                                    items: root_items,
                                     x,
                                     y,
                                     level: 0,
