@@ -35,17 +35,17 @@ impl ContextMenuData<Self> for DataContextMenu {
         vec![
             ContextMenuItemInner::new_with_handler(
                 "Item 1".to_string(),
-                |cx| {
+                |_, cx| {
                     cx.hello();
                 },
                 Some(vec![ContextMenuItemInner::new_with_handler(
                     "Item 1.1".to_string(),
-                    |cx| {
+                    |_, cx| {
                         cx.hello1();
                     },
                     Some(vec![ContextMenuItemInner::new_with_handler(
                         "Item 1.1.1".to_string(),
-                        |cx| {
+                        |_, cx| {
                             cx.bye1();
                         },
                         None,
@@ -54,7 +54,7 @@ impl ContextMenuData<Self> for DataContextMenu {
             ),
             ContextMenuItemInner::new_with_handler(
                 "Item 2".to_string(),
-                |cx| {
+                |_, cx| {
                     cx.bye();
                 },
                 None,

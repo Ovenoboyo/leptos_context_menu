@@ -30,7 +30,8 @@ where
 }
 
 pub type ContextMenuItems<T> = Vec<ContextMenuItemInner<T>>;
-pub type ContextMenuHandler<T> = Option<Rc<Box<dyn Fn(MutexGuard<'_, T>)>>>;
+pub type ContextMenuHandler<T> =
+    Option<Rc<Box<dyn Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>)>>>;
 
 pub struct ContextMenuItemInner<T> {
     pub key: String,
@@ -223,10 +224,10 @@ where
                                     );
                                     handle_hover(&item, args.x + width, page_y, args.level)
                                 }
-                                on:click=move |_| {
+                                on:click=move |e| {
                                     if let Some(handler) = item_handler.clone() {
                                         let ctx = ctx.lock().unwrap();
-                                        handler(ctx);
+                                        handler(e, ctx);
                                         show.set(false);
                                     }
                                 }
@@ -373,7 +374,7 @@ impl<T> Clone for ContextMenuItemInner<T> {
 impl<T> ContextMenuItemInner<T> {
     pub fn new_with_handler(
         name: String,
-        handler: impl Fn(MutexGuard<'_, T>) + 'static,
+        handler: impl Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>) + 'static,
         children: Option<ContextMenuItems<T>>,
     ) -> Self {
         ContextMenuItemInner {
