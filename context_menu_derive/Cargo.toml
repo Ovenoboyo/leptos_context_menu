@@ -1,0 +1,13 @@
+[package]
+name = "context_menu_derive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = "0.6.14"
+proc-macro2 = "1.0.86"
+quote = "1.0.36"
+syn = "2.0.74"
+
+[lib]
+proc-macro = true

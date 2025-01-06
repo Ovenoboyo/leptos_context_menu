@@ -332,14 +332,21 @@ where
         };
 
         let _ = on_click_outside(root_node_ref, move |_| {
-            show.set(false);
-            hovered_items.set(vec![]);
+            if show.get_untracked() {
+                show.set(false);
+                hovered_items.set(vec![]);
+            }
         });
 
         leptos::mount_to_body(move || view);
 
         let mut element = self.root_view.lock().unwrap();
         *element = Some(root_node_ref);
+    }
+
+    pub fn hide(&self) {
+        self.show_signal.set(false);
+        self.hovered_items.set(vec![]);
     }
 
     pub fn show(&self, mouse_event: leptos::ev::MouseEvent) {
