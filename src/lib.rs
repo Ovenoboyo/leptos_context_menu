@@ -83,7 +83,7 @@ where
         Self::new_with_ref(data, create_node_ref())
     }
 
-    pub fn new_with_ref(data: T, root_ref: NodeRef) -> Self {
+    pub fn new_with_ref(data: T, root_ref: NodeRef<Div>) -> Self {
         let ctx = Self {
             ctx: Rc::new(Mutex::new(data)),
             hovered_items: create_rw_signal(Vec::new()),
