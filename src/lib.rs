@@ -72,6 +72,7 @@ where
     coords: RwSignal<(i32, i32)>,
     show_signal: RwSignal<bool>,
     root_items: RwSignal<ContextMenuItems<T>>,
+    root_node_ref: NodeRef<Div>,
 }
 
 impl<T> ContextMenu<T>
@@ -79,6 +80,10 @@ where
     T: ContextMenuData<T> + 'static,
 {
     pub fn new(data: T) -> Self {
+        Self::new_with_ref(data, create_node_ref())
+    }
+
+    pub fn new_with_ref(data: T, root_ref: NodeRef) -> Self {
         let ctx = Self {
             ctx: Rc::new(Mutex::new(data)),
             hovered_items: create_rw_signal(Vec::new()),
@@ -86,6 +91,7 @@ where
             coords: create_rw_signal((0, 0)),
             show_signal: create_rw_signal(false),
             root_items: create_rw_signal(Vec::new()),
+            root_node_ref: root_ref,
         };
 
         ctx.render_root_view();
@@ -274,7 +280,7 @@ where
     pub fn render_root_view(&self) {
         let root_items = self.root_items.get();
         let ctx = self.ctx.clone();
-        let root_node_ref = create_node_ref();
+        let root_node_ref = self.root_node_ref;
         let hovered_items = self.hovered_items;
         let coords = self.coords;
         let show = self.show_signal;
