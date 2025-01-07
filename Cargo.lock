@@ -198,15 +198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "context_menu_macro"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "convert_case"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,7 +662,6 @@ name = "leptos_context_menu"
 version = "0.1.0"
 dependencies = [
  "console_error_panic_hook",
- "context_menu_macro",
  "leptos",
  "leptos-use",
  "uuid",

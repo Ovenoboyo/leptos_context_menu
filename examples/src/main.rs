@@ -4,8 +4,8 @@ use leptos::{
     create_rw_signal, logging::log, mount_to_body, set_interval, spawn_local, view, SignalGet,
 };
 use leptos_context_menu::{
-    provide_context_menu_state, ContextMenu, ContextMenuData, ContextMenuItemInner,
-    ContextMenuItems,
+    provide_context_menu_state, BottomSheet, ContextMenu, ContextMenuData, ContextMenuItemInner,
+    ContextMenuItems, Menu,
 };
 
 #[derive(Clone, Copy)]
@@ -71,7 +71,7 @@ fn main() {
 
     let context_menu_data = DataContextMenu { string_data: 0 };
 
-    let context_menu = create_rw_signal(ContextMenu::new(context_menu_data));
+    let context_menu = create_rw_signal(BottomSheet::new(context_menu_data));
 
     set_interval(
         move || {
@@ -81,7 +81,7 @@ fn main() {
             if context_menu_data.string_data > 10000 {
                 context_menu_data.string_data = 0;
             }
-            log!("{}", context_menu_data.string_data);
+            // log!("{}", context_menu_data.string_data);
         },
         Duration::from_millis(1000),
     );
