@@ -8,8 +8,8 @@ use leptos::{
     ev::{mousedown, mousemove, mouseup, transitionend},
     html::Div,
     leptos_dom::logging::console_log,
-    use_context, view, For, IntoView, NodeRef, RwSignal, SignalGet, SignalSet, SignalSetUntracked,
-    SignalUpdate,
+    use_context, view, For, IntoView, NodeRef, RwSignal, SignalGet, SignalGetUntracked, SignalSet,
+    SignalSetUntracked, SignalUpdate,
 };
 use leptos_use::{use_event_listener, use_event_listener_with_options, UseEventListenerOptions};
 
@@ -117,6 +117,7 @@ where
     let root_node_ref = create_node_ref::<Div>();
 
     let is_dragging = create_rw_signal(false);
+    let has_moved = create_rw_signal(false);
     let start_offset = create_rw_signal(0);
     let page_height = create_rw_signal(0);
     let drag_up = create_rw_signal(None);
@@ -126,50 +127,53 @@ where
         is_dragging.set_untracked(true);
         start_offset.set_untracked(ev.client_y());
         page_height.set(document().body().unwrap().client_height());
+        has_moved.set_untracked(false);
         if let Some(el) = node_ref.get() {
             el.style("transition", "all 0s");
         }
     });
 
     let _ = use_event_listener(node_ref, mouseup, move |ev| {
-        is_dragging.set_untracked(false);
+        if is_dragging.get_untracked() {
+            is_dragging.set_untracked(false);
 
-        if let Some(mut el) = node_ref.get() {
-            if let Some(drag_up) = drag_up.get() {
-                if drag_up {
-                    let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
-                    el.style("transform", format!("translateY({}px)", sixty_perc))
-                        .style("transition", "all 0.2s");
-                    bottom_sheet_pos.set(sixty_perc);
-                } else {
-                    let transition_time = if bottom_sheet_pos.get() < 0 {
-                        "0.4s"
+            if let Some(mut el) = node_ref.get() {
+                if let Some(drag_up) = drag_up.get() {
+                    if drag_up {
+                        let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
+                        el.style("transform", format!("translateY({}px)", sixty_perc))
+                            .style("transition", "all 0.2s");
+                        bottom_sheet_pos.set(sixty_perc);
                     } else {
-                        "0.2s"
-                    };
-                    el.style(
-                        "transform",
-                        format!(
-                            "translateY({}px)",
-                            ((1f64 - 0.6) * page_height.get() as f64)
-                        ),
-                    )
-                    .style("transition", format!("all {}", transition_time));
+                        let transition_time = if bottom_sheet_pos.get() < 0 {
+                            "0.4s"
+                        } else {
+                            "0.2s"
+                        };
+                        el.style(
+                            "transform",
+                            format!(
+                                "translateY({}px)",
+                                ((1f64 - 0.6) * page_height.get() as f64)
+                            ),
+                        )
+                        .style("transition", format!("all {}", transition_time));
 
-                    if let Some(el) = root_node_ref.get() {
-                        el.style("opacity", "0")
-                            .style("transition", format!("all {}", transition_time));
+                        if let Some(el) = root_node_ref.get() {
+                            el.style("opacity", "0")
+                                .style("transition", format!("all {}", transition_time));
+                        }
+
+                        let show = args.show;
+                        use_event_listener_with_options(
+                            node_ref,
+                            transitionend,
+                            move |_| {
+                                show.set(false);
+                            },
+                            UseEventListenerOptions::default().once(true),
+                        );
                     }
-
-                    let show = args.show;
-                    use_event_listener_with_options(
-                        node_ref,
-                        transitionend,
-                        move |_| {
-                            show.set(false);
-                        },
-                        UseEventListenerOptions::default().once(true),
-                    );
                 }
             }
         }
@@ -189,6 +193,10 @@ where
                 drag_up.set_untracked(Some(true));
             } else {
                 drag_up.set_untracked(Some(false));
+            }
+
+            if client_y_diff.abs() > 5 {
+                has_moved.set_untracked(true);
             }
 
             if let Some(elem) = node_ref.get() {
@@ -233,10 +241,12 @@ where
                                 class="context-menu-item context-menu-open"
                                 style="display: flex; align-items: center;"
                                 on:click=move |e| {
-                                    if let Some(handler) = item_handler.clone() {
-                                        let ctx = ctx.lock().unwrap();
-                                        handler(e, ctx);
-                                        show.set(false);
+                                    if !has_moved.get() {
+                                        if let Some(handler) = item_handler.clone() {
+                                            let ctx = ctx.lock().unwrap();
+                                            handler(e, ctx);
+                                            show.set(false);
+                                        }
                                     }
                                 }
                             >

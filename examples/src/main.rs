@@ -52,13 +52,7 @@ impl ContextMenuData<Self> for DataContextMenu {
                     )]),
                 )]),
             ),
-            ContextMenuItemInner::new_with_handler(
-                "Item 2".to_string(),
-                |_, cx| {
-                    cx.bye();
-                },
-                None,
-            ),
+            ContextMenuItemInner::new("Item 2".to_string(), None),
         ]
     }
 }
