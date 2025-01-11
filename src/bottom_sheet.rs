@@ -5,7 +5,7 @@ use std::{
 
 use leptos::{
     create_node_ref, create_rw_signal, document,
-    ev::{mousedown, mousemove, mouseup, transitionend},
+    ev::{mousedown, mousemove, mouseup, touchend, touchmove, touchstart, transitionend},
     html::Div,
     leptos_dom::logging::console_log,
     use_context, view, For, IntoView, NodeRef, RwSignal, SignalGet, SignalGetUntracked, SignalSet,
@@ -123,17 +123,24 @@ where
     let drag_up = create_rw_signal(None);
     let bottom_sheet_pos = create_rw_signal(0);
 
-    let _ = use_event_listener(node_ref, mousedown, move |ev| {
+    let listener = move |client_y: i32| {
         is_dragging.set_untracked(true);
-        start_offset.set_untracked(ev.client_y());
+        start_offset.set_untracked(client_y);
         page_height.set(document().body().unwrap().client_height());
         has_moved.set_untracked(false);
         if let Some(el) = node_ref.get() {
-            el.style("transition", "all 0s");
+            let _ = el.style("transition", "all 0s");
         }
+    };
+    let _ = use_event_listener(node_ref, mousedown, move |ev| {
+        listener(ev.client_y());
+    });
+    let _ = use_event_listener(node_ref, touchstart, move |ev| {
+        let touch = ev.touches().get(0).unwrap();
+        listener(touch.client_y());
     });
 
-    let _ = use_event_listener(node_ref, mouseup, move |ev| {
+    let listener = move || {
         if is_dragging.get_untracked() {
             is_dragging.set_untracked(false);
 
@@ -141,7 +148,8 @@ where
                 if let Some(drag_up) = drag_up.get() {
                     if drag_up {
                         let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
-                        el.style("transform", format!("translateY({}px)", sixty_perc))
+                        let _ = el
+                            .style("transform", format!("translateY({}px)", sixty_perc))
                             .style("transition", "all 0.2s");
                         bottom_sheet_pos.set(sixty_perc);
                     } else {
@@ -150,22 +158,24 @@ where
                         } else {
                             "0.2s"
                         };
-                        el.style(
-                            "transform",
-                            format!(
-                                "translateY({}px)",
-                                ((1f64 - 0.6) * page_height.get() as f64)
-                            ),
-                        )
-                        .style("transition", format!("all {}", transition_time));
+                        let _ = el
+                            .style(
+                                "transform",
+                                format!(
+                                    "translateY({}px)",
+                                    ((1f64 - 0.6) * page_height.get() as f64)
+                                ),
+                            )
+                            .style("transition", format!("all {}", transition_time));
 
                         if let Some(el) = root_node_ref.get() {
-                            el.style("opacity", "0")
+                            let _ = el
+                                .style("opacity", "0")
                                 .style("transition", format!("all {}", transition_time));
                         }
 
                         let show = args.show;
-                        use_event_listener_with_options(
+                        let _ = use_event_listener_with_options(
                             node_ref,
                             transitionend,
                             move |_| {
@@ -177,9 +187,13 @@ where
                 }
             }
         }
-    });
+    };
 
-    let _ = use_event_listener(document().body(), mousemove, move |ev| {
+    let _ = use_event_listener(node_ref, mouseup, move |_| listener());
+
+    let _ = use_event_listener(node_ref, touchend, move |_| listener());
+
+    let listener = move |client_y: i32| {
         if is_dragging.get() {
             let page_height = page_height.get();
             let start_offset = start_offset.get();
@@ -187,7 +201,7 @@ where
             let sixty_perc = -((0.6) * page_height as f64) as i32;
             let fourty_perc = ((1f64 - 0.6) * page_height as f64) as i32;
             let client_y_diff =
-                (bottom_sheet_pos + ev.client_y() - start_offset).clamp(sixty_perc, fourty_perc);
+                (bottom_sheet_pos + client_y - start_offset).clamp(sixty_perc, fourty_perc);
 
             if client_y_diff - bottom_sheet_pos < -20 {
                 drag_up.set_untracked(Some(true));
@@ -200,9 +214,16 @@ where
             }
 
             if let Some(elem) = node_ref.get() {
-                elem.style("transform", format!("translateY({}px)", client_y_diff));
+                let _ = elem.style("transform", format!("translateY({}px)", client_y_diff));
             }
         }
+    };
+    let _ = use_event_listener(document().body(), mousemove, move |ev| {
+        listener(ev.client_y());
+    });
+    let _ = use_event_listener(document().body(), touchmove, move |ev| {
+        let touch = ev.touches().get(0).unwrap();
+        listener(touch.client_y());
     });
 
     let mut flattened_children = vec![];
@@ -220,6 +241,9 @@ where
             node_ref=root_node_ref
             class="context-menu-outer"
             style="position: fixed; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 1); bottom: 0; left: 0;"
+            on:click=move |_| {
+                args.show.set(false);
+            }
         >
 
             <div
