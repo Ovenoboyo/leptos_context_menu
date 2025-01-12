@@ -1,15 +1,11 @@
-use std::{
-    rc::Rc,
-    sync::{Mutex, MutexGuard},
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use leptos::{
-    create_node_ref, create_rw_signal, document,
     ev::{mousedown, mousemove, mouseup, touchend, touchmove, touchstart, transitionend},
     html::Div,
-    leptos_dom::logging::console_log,
-    use_context, view, For, IntoView, NodeRef, RwSignal, SignalGet, SignalGetUntracked, SignalSet,
-    SignalSetUntracked, SignalUpdate,
+    mount::mount_to_body,
+    prelude::*,
+    view, IntoView,
 };
 use leptos_use::{use_event_listener, use_event_listener_with_options, UseEventListenerOptions};
 
@@ -17,9 +13,9 @@ use crate::{common::ContextMenuState, ContextMenuData, ContextMenuItems, Menu};
 
 struct RenderMenuArgs<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
-    ctx: Rc<Mutex<T>>,
+    ctx: Arc<Mutex<T>>,
     items: ContextMenuItems<T>,
     show: RwSignal<bool>,
 }
@@ -27,26 +23,26 @@ where
 #[derive(Clone)]
 pub struct BottomSheet<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
-    data: Rc<Mutex<T>>,
+    data: Arc<Mutex<T>>,
     show_signal: RwSignal<bool>,
     root_items: RwSignal<ContextMenuItems<T>>,
 }
 
 impl<T> BottomSheet<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     pub fn new(data: T) -> Self {
         let ctx = Self {
-            data: Rc::new(Mutex::new(data)),
-            show_signal: create_rw_signal(false),
-            root_items: create_rw_signal(Vec::new()),
+            data: Arc::new(Mutex::new(data)),
+            show_signal: RwSignal::new(false),
+            root_items: RwSignal::new(Vec::new()),
         };
         ctx.render_root_view();
 
-        if let Some(context_menu_state) = leptos::use_context::<RwSignal<ContextMenuState>>() {
+        if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {
             context_menu_state.update(|c| c.add_menu(ctx.show_signal));
         }
 
@@ -55,7 +51,7 @@ where
 
     fn render_root_view(&self) {
         let show = self.show_signal;
-        let root_node_ref = create_node_ref();
+        let root_node_ref = NodeRef::new();
         let root_items = self.root_items;
         let data = self.data.clone();
 
@@ -73,27 +69,27 @@ where
                                 items: root_items.get(),
                                 show: show,
                             })
-                            .into_view()
+                            .into_any()
                     } else {
-                        view! {}.into_view()
+                        view! {}.into_any()
                     }
                 }}
             </div>
         };
 
-        leptos::mount_to_body(move || view);
+        mount_to_body(move || view);
     }
 }
 
 impl<T> Menu<T> for BottomSheet<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     fn hide(&self) {
         self.show_signal.set(false);
     }
 
-    fn show(&self, mouse_event: leptos::ev::MouseEvent) {
+    fn show(&self, _: leptos::ev::MouseEvent) {
         let ctx = self.data.lock().unwrap();
         self.root_items.set(ctx.get_menu_items());
         drop(ctx);
@@ -111,25 +107,25 @@ where
 
 fn render_menu<T>(args: RenderMenuArgs<T>) -> impl IntoView
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
-    let node_ref = create_node_ref::<Div>();
-    let root_node_ref = create_node_ref::<Div>();
+    let node_ref = NodeRef::<Div>::new();
+    let root_node_ref = NodeRef::<Div>::new();
 
-    let is_dragging = create_rw_signal(false);
-    let has_moved = create_rw_signal(false);
-    let start_offset = create_rw_signal(0);
-    let page_height = create_rw_signal(0);
-    let drag_up = create_rw_signal(None);
-    let bottom_sheet_pos = create_rw_signal(0);
+    let is_dragging = RwSignal::new(false);
+    let has_moved = RwSignal::new(false);
+    let start_offset = RwSignal::new(0);
+    let page_height = RwSignal::new(0);
+    let drag_up = RwSignal::new(None);
+    let bottom_sheet_pos = RwSignal::new(0);
 
     let listener = move |client_y: i32| {
-        is_dragging.set_untracked(true);
-        start_offset.set_untracked(client_y);
+        is_dragging.set(true);
+        start_offset.set(client_y);
         page_height.set(document().body().unwrap().client_height());
-        has_moved.set_untracked(false);
+        has_moved.set(false);
         if let Some(el) = node_ref.get() {
-            let _ = el.style("transition", "all 0s");
+            let _ = el.style(("transition", "all 0s"));
         }
     };
     let _ = use_event_listener(node_ref, mousedown, move |ev| {
@@ -142,15 +138,14 @@ where
 
     let listener = move || {
         if is_dragging.get_untracked() {
-            is_dragging.set_untracked(false);
+            is_dragging.set(false);
 
-            if let Some(mut el) = node_ref.get() {
+            if let Some(el) = node_ref.get() {
                 if let Some(drag_up) = drag_up.get() {
                     if drag_up {
                         let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
-                        let _ = el
-                            .style("transform", format!("translateY({}px)", sixty_perc))
-                            .style("transition", "all 0.2s");
+                        let _ = el.style(("transform", format!("translateY({}px)", sixty_perc)));
+                        let _ = el.style(("transition", "all 0.2s"));
                         bottom_sheet_pos.set(sixty_perc);
                     } else {
                         let transition_time = if bottom_sheet_pos.get() < 0 {
@@ -158,20 +153,18 @@ where
                         } else {
                             "0.2s"
                         };
-                        let _ = el
-                            .style(
-                                "transform",
-                                format!(
-                                    "translateY({}px)",
-                                    ((1f64 - 0.6) * page_height.get() as f64)
-                                ),
-                            )
-                            .style("transition", format!("all {}", transition_time));
+                        let _ = el.style((
+                            "transform",
+                            format!(
+                                "translateY({}px)",
+                                ((1f64 - 0.6) * page_height.get() as f64)
+                            ),
+                        ));
+                        let _ = el.style(("transition", format!("all {}", transition_time)));
 
                         if let Some(el) = root_node_ref.get() {
-                            let _ = el
-                                .style("opacity", "0")
-                                .style("transition", format!("all {}", transition_time));
+                            let _ = el.style(("opacity", "0"));
+                            let _ = el.style(("transition", format!("all {}", transition_time)));
                         }
 
                         let show = args.show;
@@ -204,17 +197,17 @@ where
                 (bottom_sheet_pos + client_y - start_offset).clamp(sixty_perc, fourty_perc);
 
             if client_y_diff - bottom_sheet_pos < -20 {
-                drag_up.set_untracked(Some(true));
+                drag_up.set(Some(true));
             } else {
-                drag_up.set_untracked(Some(false));
+                drag_up.set(Some(false));
             }
 
             if client_y_diff.abs() > 5 {
-                has_moved.set_untracked(true);
+                has_moved.set(true);
             }
 
             if let Some(elem) = node_ref.get() {
-                let _ = elem.style("transform", format!("translateY({}px)", client_y_diff));
+                let _ = elem.style(("transform", format!("translateY({}px)", client_y_diff)));
             }
         }
     };
@@ -291,15 +284,14 @@ where
                                             view! {
                                                 <svg
                                                     class="context-menu-right-arrow"
-                                                    aria-hidden="true"
                                                     viewBox="0 0 1024 1024"
                                                 >
                                                     <path d="M307.018 49.445c11.517 0 23.032 4.394 31.819 13.18L756.404 480.18c8.439 8.438 13.181 19.885 13.181 31.82s-4.741 23.38-13.181 31.82L338.838 961.376c-17.574 17.573-46.065 17.573-63.64-0.001-17.573-17.573-17.573-46.065 0.001-63.64L660.944 512 275.198 126.265c-17.574-17.573-17.574-46.066-0.001-63.64C283.985 53.839 295.501 49.445 307.018 49.445z"></path>
                                                 </svg>
                                             }
-                                                .into_view()
+                                                .into_any()
                                         } else {
-                                            view! {}.into_view()
+                                            ().into_any()
                                         }
                                     }}
 

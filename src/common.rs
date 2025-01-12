@@ -1,6 +1,6 @@
-use std::{rc::Rc, sync::MutexGuard};
+use std::sync::{Arc, MutexGuard};
 
-use leptos::{RwSignal, SignalSet};
+use leptos::prelude::{RwSignal, Set};
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -20,31 +20,40 @@ impl ContextMenuState {
     }
 }
 
-pub trait ContextMenuData<T> {
+pub trait ContextMenuData<T>
+where
+    T: Send + Sync,
+{
     fn get_menu_items(&self) -> ContextMenuItems<T>;
 }
 
 pub type ContextMenuItems<T> = Vec<ContextMenuItemInner<T>>;
 pub type ContextMenuHandler<T> =
-    Option<Rc<Box<dyn Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>)>>>;
+    Option<Arc<Box<dyn Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>) + Send + Sync>>>;
 
-pub struct ContextMenuItemInner<T> {
+pub struct ContextMenuItemInner<T>
+where
+    T: Send + Sync,
+{
     pub key: String,
     pub name: String,
     pub handler: ContextMenuHandler<T>,
     pub children: Option<ContextMenuItems<T>>,
 }
 
-impl<T> ContextMenuItemInner<T> {
+impl<T> ContextMenuItemInner<T>
+where
+    T: Send + Sync,
+{
     pub fn new_with_handler(
         name: String,
-        handler: impl Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>) + 'static,
+        handler: impl Fn(leptos::web_sys::MouseEvent, MutexGuard<'_, T>) + 'static + Send + Sync,
         children: Option<ContextMenuItems<T>>,
     ) -> Self {
         ContextMenuItemInner {
             key: Uuid::new_v4().to_string(),
             name,
-            handler: Some(Rc::new(Box::new(handler))),
+            handler: Some(Arc::new(Box::new(handler))),
             children,
         }
     }
@@ -59,7 +68,10 @@ impl<T> ContextMenuItemInner<T> {
     }
 }
 
-impl<T> Clone for ContextMenuItemInner<T> {
+impl<T> Clone for ContextMenuItemInner<T>
+where
+    T: Send + Sync,
+{
     fn clone(&self) -> Self {
         ContextMenuItemInner {
             key: self.key.clone(),
@@ -72,7 +84,7 @@ impl<T> Clone for ContextMenuItemInner<T> {
 
 pub trait Menu<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     fn get_data(&self) -> MutexGuard<'_, T>;
     fn hide(&self);

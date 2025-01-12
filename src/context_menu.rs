@@ -1,14 +1,7 @@
 use leptos::html::Div;
-use leptos::logging::log;
-use leptos::{
-    create_effect, create_node_ref, create_rw_signal, document, provide_context, use_context, view,
-    CollectView, NodeRef, RwSignal, SignalGetUntracked, SignalSet,
-};
-use leptos::{For, IntoView, SignalGet, SignalUpdate};
+use leptos::prelude::*;
 use leptos_use::on_click_outside;
-use std::rc::Rc;
-use std::sync::{Mutex, MutexGuard};
-use uuid::Uuid;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use crate::common::{ContextMenuData, ContextMenuItems, ContextMenuState, Menu};
 use crate::ContextMenuItemInner;
@@ -17,9 +10,9 @@ type HoverItems<T> = Vec<(String, ContextMenuItems<T>, i32, i32, NodeRef<Div>)>;
 
 struct RenderMenuArgs<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
-    ctx: Rc<Mutex<T>>,
+    ctx: Arc<Mutex<T>>,
     root_node_ref: NodeRef<Div>,
     hovered_items: RwSignal<HoverItems<T>>,
     items: ContextMenuItems<T>,
@@ -33,11 +26,11 @@ where
 #[derive(Clone)]
 pub struct ContextMenu<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     hovered_items: RwSignal<HoverItems<T>>,
-    ctx: Rc<Mutex<T>>,
-    root_view: Rc<Mutex<Option<NodeRef<Div>>>>,
+    ctx: Arc<Mutex<T>>,
+    root_view: Arc<Mutex<Option<NodeRef<Div>>>>,
     coords: RwSignal<(i32, i32)>,
     show_signal: RwSignal<bool>,
     root_items: RwSignal<ContextMenuItems<T>>,
@@ -46,26 +39,26 @@ where
 
 impl<T> ContextMenu<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     pub fn new(data: T) -> Self {
-        Self::new_with_ref(data, create_node_ref())
+        Self::new_with_ref(data, NodeRef::new())
     }
 
     pub fn new_with_ref(data: T, root_ref: NodeRef<Div>) -> Self {
         let ctx = Self {
-            ctx: Rc::new(Mutex::new(data)),
-            hovered_items: create_rw_signal(Vec::new()),
-            root_view: Rc::new(Mutex::new(None)),
-            coords: create_rw_signal((0, 0)),
-            show_signal: create_rw_signal(false),
-            root_items: create_rw_signal(Vec::new()),
+            ctx: Arc::new(Mutex::new(data)),
+            hovered_items: RwSignal::new(Vec::new()),
+            root_view: Arc::new(Mutex::new(None)),
+            coords: RwSignal::new((0, 0)),
+            show_signal: RwSignal::new(false),
+            root_items: RwSignal::new(Vec::new()),
             root_node_ref: root_ref,
         };
 
         ctx.render_root_view();
 
-        if let Some(context_menu_state) = leptos::use_context::<RwSignal<ContextMenuState>>() {
+        if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {
             context_menu_state.update(|c| c.add_menu(ctx.show_signal));
         }
 
@@ -110,19 +103,19 @@ where
                 });
             }
             if let Some(children) = item.children.clone() {
-                let new_menu_node_ref = create_node_ref::<Div>();
+                let new_menu_node_ref = NodeRef::<Div>::new();
                 args.hovered_items.update(|hovered_items| {
                     hovered_items.push((item.key.clone(), children, x, y, new_menu_node_ref));
                 });
             }
         };
 
-        let y_pos = create_rw_signal(args.y);
-        let x_pos = create_rw_signal(args.x);
+        let y_pos = RwSignal::new(args.y);
+        let x_pos = RwSignal::new(args.x);
 
         let node_ref = args.node_ref;
 
-        create_effect(move |_| {
+        Effect::new(move || {
             let el = node_ref.get_untracked();
             if let Some(el) = el {
                 let body_width = document().body().unwrap().client_width();
@@ -173,7 +166,7 @@ where
                         let item_children = item.children.clone();
                         let item_handler = item.handler.clone();
                         let item_key = item.key.clone();
-                        let active_item_node_ref = create_node_ref::<Div>();
+                        let active_item_node_ref = NodeRef::<Div>::new();
                         let ctx = args.ctx.clone();
                         let show = args.show;
                         view! {
@@ -226,9 +219,9 @@ where
                                                     <path d="M307.018 49.445c11.517 0 23.032 4.394 31.819 13.18L756.404 480.18c8.439 8.438 13.181 19.885 13.181 31.82s-4.741 23.38-13.181 31.82L338.838 961.376c-17.574 17.573-46.065 17.573-63.64-0.001-17.573-17.573-17.573-46.065 0.001-63.64L660.944 512 275.198 126.265c-17.574-17.573-17.574-46.066-0.001-63.64C283.985 53.839 295.501 49.445 307.018 49.445z"></path>
                                                 </svg>
                                             }
-                                                .into_view()
+                                                .into_any()
                                         } else {
-                                            view! {}.into_view()
+                                            ().into_any()
                                         }
                                     }}
 
@@ -260,7 +253,7 @@ where
                     if show.get() {
                         let mut ret = vec![];
                         let (x, y) = coords.get();
-                        let root_node_ref = create_node_ref();
+                        let root_node_ref = NodeRef::new();
                         let root_items = root_items.get();
                         ret.push(
                             Self::render_menu(RenderMenuArgs {
@@ -274,7 +267,7 @@ where
                                     node_ref: root_node_ref,
                                     show,
                                 })
-                                .into_view(),
+                                .into_any(),
                         );
                         let ctx = ctx.clone();
                         ret.push(
@@ -295,11 +288,12 @@ where
                                         show,
                                     })
                                 })
-                                .collect_view(),
+                                .collect_view()
+                                .into_any(),
                         );
-                        ret.collect_view()
+                        ret.collect_view().into_any()
                     } else {
-                        view! {}.into_view()
+                        ().into_any()
                     }
                 }}
             </div>
@@ -312,7 +306,7 @@ where
             }
         });
 
-        leptos::mount_to_body(move || view);
+        mount_to_body(move || view);
 
         let mut element = self.root_view.lock().unwrap();
         *element = Some(root_node_ref);
@@ -321,7 +315,7 @@ where
 
 impl<T> Menu<T> for ContextMenu<T>
 where
-    T: ContextMenuData<T> + 'static,
+    T: ContextMenuData<T> + 'static + Send + Sync,
 {
     fn hide(&self) {
         self.show_signal.set(false);
