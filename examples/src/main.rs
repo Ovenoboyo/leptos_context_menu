@@ -1,8 +1,6 @@
 use std::time::Duration;
 
-use leptos::{
-    create_rw_signal, logging::log, mount_to_body, set_interval, spawn_local, view, SignalGet,
-};
+use leptos::{logging::log, prelude::*};
 use leptos_context_menu::{
     provide_context_menu_state, BottomSheet, ContextMenu, ContextMenuData, ContextMenuItemInner,
     ContextMenuItems, Menu,
@@ -81,7 +79,7 @@ fn main() {
     );
 
     mount_to_body(move || {
-        leptos::window_event_listener(leptos::ev::contextmenu, move |ev| {
+        window_event_listener(leptos::ev::contextmenu, move |ev| {
             ev.prevent_default();
             context_menu.get().show(ev);
         });
