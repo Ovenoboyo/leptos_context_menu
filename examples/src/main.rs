@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use leptos::{logging::log, prelude::*};
+use leptos::{leptos_dom::logging::console_log, logging::log, prelude::*};
 use leptos_context_menu::{
     provide_context_menu_state, BottomSheet, ContextMenu, ContextMenuData, ContextMenuItemInner,
     ContextMenuItems, Menu,
@@ -25,7 +25,10 @@ impl DataContextMenu {
     fn bye(&self) {}
 
     // #[context_menu_attr(name = "bye1")]
-    fn bye1(&self) {}
+    fn bye1(&self) {
+        let test: TestContext = expect_context();
+        console_log("got context");
+    }
 }
 
 impl ContextMenuData<Self> for DataContextMenu {
@@ -55,15 +58,19 @@ impl ContextMenuData<Self> for DataContextMenu {
     }
 }
 
-fn main() {
-    console_error_panic_hook::set_once();
+#[derive(Debug, Clone, Copy)]
+struct TestContext {}
 
+#[component]
+fn App() -> impl IntoView {
     // Optional if you only want one context menu on the screen at a time
     provide_context_menu_state();
 
     let context_menu_data = DataContextMenu { string_data: 0 };
 
     let context_menu = create_rw_signal(BottomSheet::new(context_menu_data));
+
+    provide_context(TestContext {});
 
     set_interval(
         move || {
@@ -78,11 +85,24 @@ fn main() {
         Duration::from_millis(1000),
     );
 
+    window_event_listener(leptos::ev::contextmenu, move |ev| {
+        ev.prevent_default();
+        context_menu.get().show(ev);
+    });
+
+    view! {
+        <div style="height: 100vh;">
+            {move || {
+                let test: TestContext = expect_context();
+            }}
+        </div>
+    }
+}
+
+fn main() {
+    console_error_panic_hook::set_once();
+
     mount_to_body(move || {
-        window_event_listener(leptos::ev::contextmenu, move |ev| {
-            ev.prevent_default();
-            context_menu.get().show(ev);
-        });
-        view! { <div style="height: 100vh;"></div> }
+        view! { <App /> }
     });
 }

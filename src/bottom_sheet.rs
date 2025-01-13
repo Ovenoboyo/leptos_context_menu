@@ -3,13 +3,16 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use leptos::{
     ev::{mousedown, mousemove, mouseup, touchend, touchmove, touchstart, transitionend},
     html::Div,
+    leptos_dom::logging::console_log,
     mount::mount_to_body,
     prelude::*,
     view, IntoView,
 };
 use leptos_use::{use_event_listener, use_event_listener_with_options, UseEventListenerOptions};
 
-use crate::{common::ContextMenuState, ContextMenuData, ContextMenuItems, Menu};
+use crate::{
+    common::ContextMenuState, ContextMenuData, ContextMenuItemInner, ContextMenuItems, Menu,
+};
 
 struct RenderMenuArgs<T>
 where
@@ -18,6 +21,7 @@ where
     ctx: Arc<Mutex<T>>,
     items: ContextMenuItems<T>,
     show: RwSignal<bool>,
+    owner: Owner,
 }
 
 #[derive(Clone)]
@@ -28,6 +32,7 @@ where
     data: Arc<Mutex<T>>,
     show_signal: RwSignal<bool>,
     root_items: RwSignal<ContextMenuItems<T>>,
+    owner: Owner,
 }
 
 impl<T> BottomSheet<T>
@@ -39,6 +44,7 @@ where
             data: Arc::new(Mutex::new(data)),
             show_signal: RwSignal::new(false),
             root_items: RwSignal::new(Vec::new()),
+            owner: Owner::new(),
         };
         ctx.render_root_view();
 
@@ -54,6 +60,7 @@ where
         let root_node_ref = NodeRef::new();
         let root_items = self.root_items;
         let data = self.data.clone();
+        let owner = self.owner.clone();
 
         let view = view! {
             <div
@@ -63,16 +70,14 @@ where
             >
 
                 {move || {
-                    if show.get() {
-                        render_menu(RenderMenuArgs {
-                                ctx: data.clone(),
-                                items: root_items.get(),
-                                show: show,
-                            })
-                            .into_any()
-                    } else {
-                        view! {}.into_any()
-                    }
+                    let owner = owner.clone();
+                    render_menu(RenderMenuArgs {
+                            ctx: data.clone(),
+                            items: root_items.get(),
+                            show: show,
+                            owner,
+                        })
+                        .into_any()
                 }}
             </div>
         };
@@ -103,6 +108,21 @@ where
     fn get_data(&self) -> MutexGuard<'_, T> {
         self.data.lock().unwrap()
     }
+}
+
+fn flatten<T>(item: &ContextMenuItemInner<T>) -> Vec<ContextMenuItemInner<T>>
+where
+    T: ContextMenuData<T> + 'static + Send + Sync,
+{
+    let mut flattened_children = vec![];
+    flattened_children.push(item.clone());
+    if let Some(children) = &item.children {
+        for child in children {
+            let children = flatten(child);
+            flattened_children.extend(children.into_iter());
+        }
+    }
+    flattened_children
 }
 
 fn render_menu<T>(args: RenderMenuArgs<T>) -> impl IntoView
@@ -186,6 +206,25 @@ where
 
     let _ = use_event_listener(node_ref, touchend, move |_| listener());
 
+    Effect::new(move || {
+        let _ = args.show.get();
+        drag_up.set(None);
+        is_dragging.set(false);
+        start_offset.set(0);
+        bottom_sheet_pos.set(0);
+        has_moved.set(false);
+
+        if let Some(elem) = node_ref.get() {
+            console_log("resetting styles");
+            let _ = elem.style(("transform", "unset"));
+            let _ = elem.style(("transition", "unset"));
+        }
+
+        if let Some(elem) = root_node_ref.get() {
+            let _ = elem.style(("opacity", "unset"));
+        }
+    });
+
     let listener = move |client_y: i32| {
         if is_dragging.get() {
             let page_height = page_height.get();
@@ -221,12 +260,7 @@ where
 
     let mut flattened_children = vec![];
     for item in args.items {
-        flattened_children.push(item.clone());
-        if let Some(children) = &item.children {
-            for child in children {
-                flattened_children.push(child.clone());
-            }
-        }
+        flattened_children.extend(flatten(&item).into_iter());
     }
 
     view! {
@@ -234,15 +268,17 @@ where
             node_ref=root_node_ref
             class="context-menu-outer"
             style="position: fixed; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 1); bottom: 0; left: 0;"
-            on:click=move |_| {
-                args.show.set(false);
-            }
+            style:display=move || if args.show.get() { "block" } else { "none" }
+            on:click=move |_| { args.show.set(false) }
         >
 
             <div
                 node_ref=node_ref
                 class="bottom-sheet-container"
                 style="position: absolute; left: 0; top: 60vh; background-color: blue; width: 100vw; height: 100vh;"
+                on:click=move |ev| {
+                    ev.stop_propagation();
+                }
             >
                 <For
                     each=move || flattened_children.clone()
@@ -253,17 +289,21 @@ where
                         let item_handler = item.handler.clone();
                         let ctx = args.ctx.clone();
                         let show = args.show;
+                        let owner = args.owner.child();
                         view! {
                             <div
                                 class="context-menu-item context-menu-open"
                                 style="display: flex; align-items: center;"
                                 on:click=move |e| {
-                                    if !has_moved.get() {
+                                    if !has_moved.get_untracked() {
                                         if let Some(handler) = item_handler.clone() {
-                                            let ctx = ctx.lock().unwrap();
-                                            handler(e, ctx);
-                                            show.set(false);
+                                            owner
+                                                .with(|| {
+                                                    let ctx = ctx.lock().unwrap();
+                                                    handler(e, ctx)
+                                                });
                                         }
+                                        show.set(false);
                                     }
                                 }
                             >

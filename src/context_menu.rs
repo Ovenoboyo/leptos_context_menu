@@ -21,6 +21,7 @@ where
     level: usize,
     node_ref: NodeRef<Div>,
     show: RwSignal<bool>,
+    owner: Owner,
 }
 
 #[derive(Clone)]
@@ -35,6 +36,7 @@ where
     show_signal: RwSignal<bool>,
     root_items: RwSignal<ContextMenuItems<T>>,
     root_node_ref: NodeRef<Div>,
+    owner: Owner,
 }
 
 impl<T> ContextMenu<T>
@@ -54,6 +56,7 @@ where
             show_signal: RwSignal::new(false),
             root_items: RwSignal::new(Vec::new()),
             root_node_ref: root_ref,
+            owner: Owner::new(),
         };
 
         ctx.render_root_view();
@@ -169,6 +172,7 @@ where
                         let active_item_node_ref = NodeRef::<Div>::new();
                         let ctx = args.ctx.clone();
                         let show = args.show;
+                        let owner = args.owner.clone();
                         view! {
                             <div
                                 class="context-menu-item"
@@ -190,10 +194,13 @@ where
                                 }
                                 on:click=move |e| {
                                     if let Some(handler) = item_handler.clone() {
-                                        let ctx = ctx.lock().unwrap();
-                                        handler(e, ctx);
-                                        show.set(false);
+                                        owner
+                                            .with(|| {
+                                                let ctx = ctx.lock().unwrap();
+                                                handler(e, ctx);
+                                            });
                                     }
+                                    show.set(false);
                                 }
                             >
                                 <div
@@ -242,6 +249,7 @@ where
         let coords = self.coords;
         let show = self.show_signal;
         let root_items = self.root_items;
+        let owner = self.owner.clone();
 
         let view = view! {
             <div
@@ -255,6 +263,7 @@ where
                         let (x, y) = coords.get();
                         let root_node_ref = NodeRef::new();
                         let root_items = root_items.get();
+                        let owner = owner.clone();
                         ret.push(
                             Self::render_menu(RenderMenuArgs {
                                     ctx: ctx.clone(),
@@ -266,6 +275,7 @@ where
                                     level: 0,
                                     node_ref: root_node_ref,
                                     show,
+                                    owner: owner.clone(),
                                 })
                                 .into_any(),
                         );
@@ -286,6 +296,7 @@ where
                                         level: level + 1,
                                         node_ref: *node_ref,
                                         show,
+                                        owner: owner.clone(),
                                     })
                                 })
                                 .collect_view()
