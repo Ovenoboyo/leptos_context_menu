@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use leptos::{leptos_dom::logging::console_log, logging::log, prelude::*};
 use leptos_context_menu::{
-    provide_context_menu_state, BottomSheet, ContextMenu, ContextMenuData, ContextMenuItemInner,
+    provide_context_menu_state, BottomSheet, ContextMenuData, ContextMenuItemInner,
     ContextMenuItems, Menu,
 };
 

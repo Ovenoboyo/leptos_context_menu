@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use leptos::{
     ev::{mousedown, mousemove, mouseup, touchend, touchmove, touchstart, transitionend},
     html::Div,
-    leptos_dom::logging::console_log,
     mount::mount_to_body,
     prelude::*,
     view, IntoView,
@@ -74,7 +73,7 @@ where
                     render_menu(RenderMenuArgs {
                             ctx: data.clone(),
                             items: root_items.get(),
-                            show: show,
+                            show,
                             owner,
                         })
                         .into_any()
@@ -215,7 +214,6 @@ where
         has_moved.set(false);
 
         if let Some(elem) = node_ref.get() {
-            console_log("resetting styles");
             let _ = elem.style(("transform", "unset"));
             let _ = elem.style(("transition", "unset"));
         }
