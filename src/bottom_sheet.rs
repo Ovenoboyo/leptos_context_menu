@@ -95,7 +95,8 @@ where
 
     fn show(&self, _: leptos::ev::MouseEvent) {
         let ctx = self.data.lock().unwrap();
-        self.root_items.set(ctx.get_menu_items());
+        self.root_items
+            .set(self.owner.with(|| ctx.get_menu_items()));
         drop(ctx);
 
         if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {

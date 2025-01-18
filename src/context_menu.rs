@@ -338,7 +338,8 @@ where
         let y = mouse_event.client_y();
 
         let ctx = self.ctx.lock().unwrap();
-        self.root_items.set(ctx.get_menu_items());
+        self.root_items
+            .set(self.owner.with(|| ctx.get_menu_items()));
         drop(ctx);
 
         self.hovered_items.set(vec![]);
