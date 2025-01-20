@@ -32,9 +32,9 @@ impl DataContextMenu {
 }
 
 impl ContextMenuData<Self> for DataContextMenu {
-    fn get_menu_items(&self) -> ContextMenuItems<Self> {
-        vec![
-            ContextMenuItemInner::new_with_handler(
+    fn get_menu_items(&self) -> ReadSignal<ContextMenuItems<Self>> {
+        RwSignal::new(vec![
+            ContextMenuItemInner::<Self>::new_with_handler(
                 "Item 1".to_string(),
                 |_, cx| {
                     cx.hello();
@@ -54,7 +54,8 @@ impl ContextMenuData<Self> for DataContextMenu {
                 )]),
             ),
             ContextMenuItemInner::new("Item 2".to_string(), None),
-        ]
+        ])
+        .read_only()
     }
 }
 

@@ -18,7 +18,7 @@ where
     T: ContextMenuData<T> + 'static + Send + Sync,
 {
     ctx: Arc<Mutex<T>>,
-    items: ContextMenuItems<T>,
+    items: ReadSignal<ContextMenuItems<T>>,
     show: RwSignal<bool>,
     owner: Owner,
 }
@@ -30,7 +30,7 @@ where
 {
     data: Arc<Mutex<T>>,
     show_signal: RwSignal<bool>,
-    root_items: RwSignal<ContextMenuItems<T>>,
+    root_items: RwSignal<ReadSignal<ContextMenuItems<T>>>,
     owner: Owner,
 }
 
@@ -42,7 +42,7 @@ where
         let ctx = Self {
             data: Arc::new(Mutex::new(data)),
             show_signal: RwSignal::new(false),
-            root_items: RwSignal::new(Vec::new()),
+            root_items: RwSignal::new(RwSignal::new(Default::default()).read_only()),
             owner: Owner::new(),
         };
         ctx.render_root_view();
@@ -57,7 +57,7 @@ where
     fn render_root_view(&self) {
         let show = self.show_signal;
         let root_node_ref = NodeRef::new();
-        let root_items = self.root_items;
+        let root_items = self.root_items.get();
         let data = self.data.clone();
         let owner = self.owner.clone();
 
@@ -72,7 +72,7 @@ where
                     let owner = owner.clone();
                     render_menu(RenderMenuArgs {
                             ctx: data.clone(),
-                            items: root_items.get(),
+                            items: root_items,
                             show,
                             owner,
                         })
@@ -257,10 +257,13 @@ where
         listener(touch.client_y());
     });
 
-    let mut flattened_children = vec![];
-    for item in args.items {
-        flattened_children.extend(flatten(&item).into_iter());
-    }
+    let flattened_children = Memo::new(move |_| {
+        let mut flattened_children = vec![];
+        for item in args.items.get() {
+            flattened_children.extend(flatten(&item).into_iter());
+        }
+        flattened_children
+    });
 
     view! {
         <div
@@ -280,7 +283,7 @@ where
                 }
             >
                 <For
-                    each=move || flattened_children.clone()
+                    each=move || flattened_children.get()
                     key=move |item| item.key.clone()
                     children=move |item| {
                         let item_name = item.name.clone();

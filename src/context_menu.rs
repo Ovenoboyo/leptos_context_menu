@@ -34,7 +34,7 @@ where
     root_view: Arc<Mutex<Option<NodeRef<Div>>>>,
     coords: RwSignal<(i32, i32)>,
     show_signal: RwSignal<bool>,
-    root_items: RwSignal<ContextMenuItems<T>>,
+    root_items: RwSignal<ReadSignal<ContextMenuItems<T>>>,
     root_node_ref: NodeRef<Div>,
     owner: Owner,
 }
@@ -54,7 +54,7 @@ where
             root_view: Arc::new(Mutex::new(None)),
             coords: RwSignal::new((0, 0)),
             show_signal: RwSignal::new(false),
-            root_items: RwSignal::new(Vec::new()),
+            root_items: RwSignal::new(RwSignal::new(Default::default()).read_only()),
             root_node_ref: root_ref,
             owner: Owner::new(),
         };
@@ -262,6 +262,7 @@ where
                         let mut ret = vec![];
                         let (x, y) = coords.get();
                         let root_node_ref = NodeRef::new();
+                        let root_items = root_items.get();
                         let root_items = root_items.get();
                         let owner = owner.clone();
                         ret.push(

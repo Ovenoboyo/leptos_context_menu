@@ -1,6 +1,6 @@
 use std::sync::{Arc, MutexGuard};
 
-use leptos::prelude::{RwSignal, Set};
+use leptos::prelude::{ReadSignal, RwSignal, Set};
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -24,7 +24,7 @@ pub trait ContextMenuData<T>
 where
     T: Send + Sync,
 {
-    fn get_menu_items(&self) -> ContextMenuItems<T>;
+    fn get_menu_items(&self) -> ReadSignal<ContextMenuItems<T>>;
 }
 
 pub type ContextMenuItems<T> = Vec<ContextMenuItemInner<T>>;
@@ -39,6 +39,17 @@ where
     pub name: String,
     pub handler: ContextMenuHandler<T>,
     pub children: Option<ContextMenuItems<T>>,
+}
+
+impl<T> Eq for ContextMenuItemInner<T> where T: Send + Sync {}
+
+impl<T> PartialEq for ContextMenuItemInner<T>
+where
+    T: Send + Sync,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.key.eq(&other.key)
+    }
 }
 
 impl<T> ContextMenuItemInner<T>
