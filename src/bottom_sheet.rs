@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use leptos::{
     ev::{mousedown, mousemove, mouseup, touchend, touchmove, touchstart, transitionend},
     html::Div,
+    leptos_dom::logging::console_log,
     mount::mount_to_body,
     prelude::*,
     view, IntoView,
@@ -57,7 +58,10 @@ where
     fn render_root_view(&self) {
         let show = self.show_signal;
         let root_node_ref = NodeRef::new();
-        let root_items = self.root_items.get();
+        let root_items = self.root_items;
+
+        // console_log(&format!("Root items: {:?}", root_items.get().len()));
+
         let data = self.data.clone();
         let owner = self.owner.clone();
 
@@ -69,6 +73,7 @@ where
             >
 
                 {move || {
+                    let root_items = root_items.get();
                     let owner = owner.clone();
                     render_menu(RenderMenuArgs {
                             ctx: data.clone(),
@@ -94,10 +99,15 @@ where
     }
 
     fn show(&self, _: leptos::ev::MouseEvent) {
-        let ctx = self.data.lock().unwrap();
-        self.root_items
-            .set(self.owner.with(|| ctx.get_menu_items()));
-        drop(ctx);
+        {
+            let ctx = self.data.lock().unwrap();
+            self.root_items
+                .set(self.owner.with(|| ctx.get_menu_items()));
+            console_log(&format!(
+                "Root items: {:?}",
+                self.root_items.get().get().len()
+            ));
+        }
 
         if let Some(context_menu_state) = use_context::<RwSignal<ContextMenuState>>() {
             context_menu_state.update(|c| c.hide_all());
@@ -156,55 +166,77 @@ where
         listener(touch.client_y());
     });
 
-    let listener = move || {
+    let listener = move |client_y| {
         if is_dragging.get_untracked() {
             is_dragging.set(false);
 
             if let Some(el) = node_ref.get() {
                 if let Some(drag_up) = drag_up.get() {
+                    let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
                     if drag_up {
-                        let sixty_perc = -((0.6) * page_height.get() as f64) as i32;
                         let _ = el.style(("transform", format!("translateY({}px)", sixty_perc)));
                         let _ = el.style(("transition", "all 0.2s"));
                         bottom_sheet_pos.set(sixty_perc);
                     } else {
-                        let transition_time = if bottom_sheet_pos.get() < 0 {
-                            "0.4s"
-                        } else {
-                            "0.2s"
-                        };
-                        let _ = el.style((
-                            "transform",
-                            format!(
-                                "translateY({}px)",
-                                ((1f64 - 0.6) * page_height.get() as f64)
-                            ),
+                        console_log(&format!(
+                            "Bottomsheet pos: {}, client_y: {}, page_height: {}",
+                            bottom_sheet_pos.get(),
+                            client_y,
+                            page_height.get()
                         ));
-                        let _ = el.style(("transition", format!("all {}", transition_time)));
+                        let mut transition_time = "0.2s";
 
-                        if let Some(el) = root_node_ref.get() {
-                            let _ = el.style(("opacity", "0"));
+                        let should_close = if bottom_sheet_pos.get() < 0 {
+                            if client_y >= -sixty_perc {
+                                transition_time = "0.4s";
+                            }
+                            client_y >= -sixty_perc
+                        } else {
+                            true
+                        };
+
+                        if should_close {
+                            let _ = el.style((
+                                "transform",
+                                format!(
+                                    "translateY({}px)",
+                                    ((1f64 - 0.6) * page_height.get() as f64)
+                                ),
+                            ));
                             let _ = el.style(("transition", format!("all {}", transition_time)));
-                        }
 
-                        let show = args.show;
-                        let _ = use_event_listener_with_options(
-                            node_ref,
-                            transitionend,
-                            move |_| {
-                                show.set(false);
-                            },
-                            UseEventListenerOptions::default().once(true),
-                        );
+                            if let Some(el) = root_node_ref.get() {
+                                let _ = el.style(("opacity", "0"));
+                                let _ =
+                                    el.style(("transition", format!("all {}", transition_time)));
+                            }
+
+                            let show = args.show;
+                            let _ = use_event_listener_with_options(
+                                node_ref,
+                                transitionend,
+                                move |_| {
+                                    show.set(false);
+                                },
+                                UseEventListenerOptions::default().once(true),
+                            );
+                        } else {
+                            let _ = el.style(("transform", format!("translateY(0px)",)));
+                            let _ = el.style(("transition", format!("all {}", transition_time)));
+                            bottom_sheet_pos.set(0);
+                        }
                     }
                 }
             }
         }
     };
 
-    let _ = use_event_listener(node_ref, mouseup, move |_| listener());
+    let _ = use_event_listener(node_ref, mouseup, move |e| listener(e.client_y()));
 
-    let _ = use_event_listener(node_ref, touchend, move |_| listener());
+    let _ = use_event_listener(node_ref, touchend, move |ev| {
+        let touch = ev.touches().get(0).unwrap();
+        listener(touch.client_y())
+    });
 
     Effect::new(move || {
         let _ = args.show.get();
