@@ -234,7 +234,7 @@ where
     let _ = use_event_listener(node_ref, mouseup, move |e| listener(e.client_y()));
 
     let _ = use_event_listener(node_ref, touchend, move |ev| {
-        let touch = ev.touches().get(0).unwrap();
+        let touch = ev.changed_touches().get(0).unwrap();
         listener(touch.client_y())
     });
 
