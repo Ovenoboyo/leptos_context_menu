@@ -1,11 +1,34 @@
-use std::time::Duration;
+# leptos_context_menu
 
-use leptos::{leptos_dom::logging::console_log, logging::log, prelude::*};
+A library for generating context menus in Leptos. You can populate the menu options dynamically.
+
+## Installation
+
+Run this command:
+
+```bash
+cargo add leptos_context_menu
+
+```
+
+Or add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+leptos_context_menu = "0.1.0"
+
+```
+
+## Usage
+
+To use this library, you must define a struct for your menu data, implement the `ContextMenuData` trait, and then attach the menu to an event listener.
+
+```rust
+use leptos::prelude::*;
 use leptos_context_menu::{
     provide_context_menu_state, BottomSheet, ContextMenuData, ContextMenuItemInner,
     ContextMenuItems, Menu,
 };
-
 
 #[derive(Clone, Copy)]
 struct MyMenuData {
@@ -62,10 +85,10 @@ fn App() -> impl IntoView {
     }
 }
 
-fn main() {
-    console_error_panic_hook::set_once();
+```
 
-    mount_to_body(move || {
-        view! { <App /> }
-    });
-}
+## Styling
+
+This library does not provide any CSS.
+
+The menu will render as raw HTML elements. You must provide your own CSS to style the menu, position it correctly, and handle visibility states.

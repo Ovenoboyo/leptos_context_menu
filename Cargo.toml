@@ -2,6 +2,12 @@
 name = "leptos_context_menu"
 version = "0.1.0"
 edition = "2021"
+description = "A library for generating context menus in Leptos."
+license = "MIT"
+repository = "https://github.com/Ovenoboyo/leptos_context_menu"
+readme = "README.md"
+keywords = ["leptos", "ui", "menu", "context-menu", "wasm"]
+categories = ["web-programming", "wasm"]
 
 [dependencies]
 leptos = { version = "0.8.11", features = ["csr"] }
